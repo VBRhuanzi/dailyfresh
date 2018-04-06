@@ -1,0 +1,248 @@
+{% extends 'base_no_cart.html' %}
+
+{% block title %}
+    天天生鲜-购物车
+{% endblock %}
+
+{% block page_title %}
+    购物车
+{% endblock %}
+
+{% block body %}
+    <form method="post" action="{% url 'orders:place' %}">
+        {% csrf_token %}
+        <div class="total_count">全部商品<em>{{ goods_total }}</em>件</div>
+        <ul class="cart_list_th clearfix">
+            <li class="col01">商品名称</li>
+            <li class="col02">商品单位</li>
+            <li class="col03">商品价格</li>
+            <li class="col04">数量</li>
+            <li class="col05">小计</li>
+            <li class="col06">操作</li>
+        </ul>
+
+
+
+        {% for goods,number in goods_dict.items %}
+
+            <ul class="cart_list_td clearfix">
+                  <li class="col01"><input type="checkbox" name="sku_ids" value="{{ goods.id }}" checked></li>
+                <li class="col02"><img src="{{ goods.default_image.url }}"></li>
+                <li class="col03">{{ goods.name }}<br><em>{{ goods.price }}/{{ goods.unit }}</em></li>
+                <li class="col04">{{ goods.unit }}</li>
+                <li class="col05">{{ goods.price }}</li>
+                <li class="col06">
+                    <div class="num_add">
+                        <a href="javascript:;" class="add fl" sku_id="{{ goods.id }}">+</a>
+                        <input type="text" class="num_show fl" value="{{ number }}">
+                        <a href="javascript:;" class="minus fl" sku_id="{{ goods.id }}">-</a>
+                    </div>
+                </li>
+                <li class="col07">{{ goods.amunt }}元</li>
+                <li class="col08"><a href="javascript:;" class="delgoods" sku_id="{{ goods.id }}">删除</a></li>
+
+            </ul>
+        {% endfor %}
+
+
+            <ul class="settlements">
+                <li class="col01"><input type="checkbox" name="" checked=""></li>
+                <li class="col02">全选</li>
+                <li class="col03">合计(不含运费)：<span>¥</span><em>42.60</em><br>共计<b>{{ goods_total }}</b>件商品</li>
+                <li class="col04"><input type="submit" value="提交订单"></li>
+            </ul>
+    </form>
+
+
+{% endblock %}
+{% block bottom_js %}
+    {% load staticfiles %}
+    <script type="text/javascript" src="{% static 'js/jquery-1.12.4.min.js' %}"></script>
+    <script type="text/javascript">
+     update_goods_amount();
+
+
+     var csrf  = $('input[name= "csrfmiddlewaretoken"]').val();
+
+    // todo: 更新显示商品总金额和总数量
+    function update_goods_amount() {
+         var total_count = 0;
+         var total_amount = 0;
+        $('.cart_list_td').find(':checked').parents('ul').each(function () {
+            var count = $(this).find('.num_show').val();
+            var price = $(this).find('.col05').text();
+
+            count = parseInt(count);
+            amount = parseFloat(price) * count;
+
+            //统计总数
+            total_count += count;
+
+            total_amount += amount;
+
+            });
+            var  amount = total_amount.toFixed(2);
+            $('.total_count').children('em').html(total_count);
+            $('.settlements').find('b').html(total_count);
+            $('.settlements').find('em').html(amount);
+        }
+     //todo 全选/全不选
+    $('.settlements').find(':checkbox').change(function () {
+       // 获取全选checkbox的勾选状态
+        var is_checked = $(this).prop('checked');
+          // 获取所有商品checkbox, 逐个设置其勾选状态与全选checkbox保持一致
+        $('.cart_list_td').find(':checkbox').each(function () {
+            // 设置商品checkbox的勾选状态
+            $(this).prop('checked', is_checked);
+        });
+        update_goods_amount();
+    });
+
+    // todo: 当商品checkbox勾选状态改变时, 全选checkbox跟着改变
+    // 获取所有商品checkbox, 并监听其状态改变
+    $('.cart_list_td').find(':checkbox').change(function () {
+        // 所有商品checkbox的个数
+        var count = $('.cart_list_td').length;
+        // 所有勾选商品checkbox的个数
+        var count_selected = $('.cart_list_td').find(":checked").length;
+        if (count == count_selected) {
+            // 所有的商品都选中了,设置全选checkbox为勾选
+            $('.settlements').find(':checkbox').prop('checked', true)
+        } else {
+            // 有商品没有选中, 则设置全选checkbox为非勾选
+            $('.settlements').find(':checkbox').prop('checked', false)
+        }
+        // 更新商品的总数量和总金额
+        update_goods_amount();
+    });
+
+    //todo 刷新某一个商品的小计金额
+
+    function update_amunt(ul) {
+
+        var price = ul.find('.col05').text();
+        var count = ul.find('.num_show').val();
+
+        price = parseFloat(price);
+        count = parseInt(count);
+
+        var amunt = price * count;
+
+
+        ul.find('.col07').text(amunt.toFixed(2)+'元');
+    }
+    //todo 添加商品数量：刷新小计金额和总价
+    $('.add').click(function () {
+        var count = $(this).next().val();
+        var sku_id = $(this).attr('sku_id');
+
+        //点击添加商品加1
+        count = parseInt(count)+1;
+
+        var params = {
+            'sku_id':sku_id,
+            'count':count,
+            'csrfmiddlewaretoken':csrf
+        };
+
+
+        var $count = $(this).next();
+        var $ul = $(this).parents('ul');
+
+
+        $.post('/cart/update',params,function (result) {
+          //{"code":5,"errmsg":"库存不足"}
+          // {"code":0,"errmsg":"商品数量变动"}
+            if(result.code == 0){
+                //todo
+                //1刷新购买数量
+                $count.val(count);
+                //2刷新小计金额
+
+                update_amunt($ul);
+
+                //3刷新总数量和总金额
+                update_goods_amount()
+
+            }
+            if(result.code == 5){
+                alert('库存不足')
+            }
+        })
+
+    });
+    //todo 减少商品数量：刷新小计金额和总价
+    $('.minus').click(function () {
+
+        var count = $(this).prev().val();
+        var sku_id = $(this).attr('sku_id');
+
+
+            //点击添加商品加1
+
+
+         if(parseInt(count)>1){
+
+             count = parseInt(count)-1;
+             var params = {
+                'sku_id':sku_id,
+                'count':count,
+                'csrfmiddlewaretoken':csrf
+            };
+
+
+            var $count = $(this).prev();
+            var $ul = $(this).parents('ul');
+
+
+
+            $.post('/cart/update',params,function (result) {
+              //{"code":5,"errmsg":"库存不足"}
+              // {"code":0,"errmsg":"商品数量变动"}
+
+                if(result.code == 0){
+                    //todo
+                    //1刷新购买数量
+                    $count.val(count);
+                    //2刷新小计金额
+
+                    update_amunt($ul);
+
+                    //3刷新总数量和总金额
+                    update_goods_amount()
+
+                }
+            })
+
+         }
+
+
+
+    });
+    //todo 删除商品：刷新总价
+    $('.delgoods').click(function () {
+        var sku_id = $(this).attr('sku_id');
+
+        var params = {
+                'sku_id':sku_id,
+                'csrfmiddlewaretoken':csrf
+            };
+
+
+        $.post('/cart/delete',params,function (result) {
+
+            if(result.code == 0){
+
+               location.href = '/cart/cart'
+            }
+
+        })
+
+    })
+
+
+
+
+
+    </script>
+{% endblock %}

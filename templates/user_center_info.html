@@ -1,0 +1,89 @@
+{% extends 'base_user_center.html' %}
+
+{% block right_body %}
+    {% csrf_token %}
+    <div class="right_content clearfix">
+        <div class="info_con clearfix">
+
+            <h3 class="common_title2">基本信息</h3>
+
+            <ul class="user_info_list">
+                <li><span>用户名：</span>{{ user.username }}</li>
+                <li><span>联系方式：</span>{{ address.receiver_mobile }}</li>
+                <li><span>联系地址：</span>{{ address.detail_addr }}</li>
+            </ul>
+        </div>
+
+        <h3 class="common_title2">最近浏览</h3>
+        <div class="has_view_list">
+            <ul class="goods_type_list clearfix">
+
+                {# 显示商品浏览记录 #}
+                {% for sku in skus %}
+                    <li>
+                        <a href="{% url 'goods:detail' sku.id %}"><img src="{{ sku.default_image.url }}"></a>
+                        <h4><a href="detail.html">{{ sku.id }}.{{ sku.name }}</a></h4>
+                        <div class="operate">
+                            <span class="prize">￥{{ sku.price }}</span>
+                            <span class="unit">{{ sku.price }}/{{ sku.unit }}</span>
+                            <a href="#" class="add_goods" title="加入购物车" sku_id ="{{ sku.id }}" ></a>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="popup_con">
+		<div class="popup">
+			<p>商品添加成功！</p>
+		</div>
+    </div>
+{% endblock %}
+{% block bottom_js %}
+    {% load staticfiles %}
+    <script type="text/javascript" src="{% static 'js/jquery-1.12.4.min.js' %}"></script>
+    <script type="text/javascript">
+
+
+     var token  = $('input[name= "csrfmiddlewaretoken"]').val();
+
+    $('.add_goods').click(function () {
+
+        var sku_id = $(this).attr('sku_id');
+
+        var count = 1;
+
+        var params = {
+                 'sku_id': sku_id,
+                 'count': count,
+                 'csrfmiddlewaretoken': token
+             };
+
+         $.post('/cart/add', params, function (result) {
+             // result: 服务器返回的数据:
+             // {'code': 4, 'errmsg': '库存不足'}
+             // {'code': 0, 'message': '添加到购物车成功', 'cart_count': cart_count}
+             if (result.code == 0) {
+                 // 添加商品到购物车成功
+
+                  $('.popup_con').fadeIn('fast', function() {
+
+                        setTimeout(function(){
+                            $('.popup_con').fadeOut('fast',function(){
+
+                            });
+                        },200)
+
+                    });
+             } else {
+                 // 提示出错信息
+                 alert(result.errmsg);
+             }
+         })
+
+    });
+
+
+    </script>
+
+{% endblock %}
